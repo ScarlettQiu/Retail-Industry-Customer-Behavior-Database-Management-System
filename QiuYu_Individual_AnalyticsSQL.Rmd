@@ -1,0 +1,244 @@
+---
+title: "QiuYu_Individual_Query"
+author: "Yu Qiu"
+date: "12/20/2021"
+output: html_document
+---
+
+```{r}
+library(knitr)
+library(DBI)
+library(RSQLite)
+knitr::opts_chunk$set(echo = TRUE)
+
+dbRetailMarketing = dbConnect(RSQLite::SQLite(), dbname ="QiuYu_Individual_DB.db")
+
+knitr::opts_chunk$set(connection = dbRetailMarketing)
+```
+
+```{r}
+DBI::dbListTables(dbRetailMarketing)
+```
+
+  
+<p><font color = "blue" font size = "4"><B><center>
+-------------------------------------Module 3----------------------------------------
+</font></B></center><p>  
+
+##**<B>Business Query Statements 1:</B> The marketing team wants to check all the campaigns which have been done previously. Display the list of all campaigns and their information. The output should be sorted by Campaign Start Year.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT Campaign_ID, CampaignName, strftime("%Y", StartDate) CampaignYear FROM Campaign ORDER BY CampaignYear
+```
+
+##**<B>Business Query Statements 2: </B> The product team wants to know the satisfactory rate of the married customers who registered between 2012-06-01 and 2013-06-01. Generate a list of customers registered during the period with the marital status married. Display the result in the order of the birth year. The columns should include Customer ID, Full Name (Last Name, First Name), Year Birth, Marital Status, Number of Complain, and Register Date.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT Customer_ID AS CustomerID, LastName || ", "|| FirstName AS FullName, YearBirth, MaritalStatus, NumOfComplain AS NumberOfComplain, RegisterDate FROM Customer 
+WHERE RegisterDate BETWEEN "2012-06-01" AND "2013-06-01" AND
+MaritalStatus = "Married"
+ORDER BY NumOfComplain DESC, RegisterDate
+```
+
+##**<B>Business Query Statements 3:</B> The product team wants to see which purchase channel has the highest total sales. Display Purchase Channel ID, Purchase Channel Name, Total Channel Sales in the descending order of total channel sales.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT PurchaseChannel.PChannel_ID AS PurchaseChannelID, ChannelName AS PurchaseChannelName, "$" || SUM(TotalFee) AS TotalChannelSales 
+FROM PurchaseChannel JOIN OrderList WHERE PurchaseChannel.PChannel_ID = OrderList.PChannel_ID GROUP BY OrderList.PChannel_ID 
+ORDER BY SUM(TotalFee) DESC
+```
+
+
+##**<B>Business Query Statements 4:</B> The marketing team wants to know the total sales made by customers who are with bachelor’s degrees and no higher degrees, and check who are the most valuable customers. Display Customer ID, Customer Full Name (Last Name, First Name), education, total sales made by different customers who has bachelor’s degree respectively in the descending order of total sales customers made.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT a.Customer_ID, LastName || ", "|| FirstName AS FullName, Education, "$" || SUM(TotalFee) as TotalSales
+FROM (SELECT Customer_ID, SUM(TotalFee) as TotalFee FROM OrderList
+ GROUP BY Customer_ID) a JOIN Customer WHERE a.Customer_ID = Customer.Customer_ID
+AND Customer.Education = "Bachelor"
+GROUP BY a.Customer_ID 
+ORDER BY SUM(TotalFee)  DESC;
+```
+
+##**<B> Business Query Statements 5:</B> The leadership team wants to know which type of promotional offer is the most favored one. List the frequency of the offer types that have been used by customers in the descending order of frequency.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT  OfferType, COUNT(PromotionOffer.DiscountCode) AS FrequencyOfOfferType
+FROM PromotionOffer JOIN CampaignBehavior WHERE PromotionOffer.DiscountCode = CampaignBehavior.DiscountCode
+GROUP BY OfferType
+ORDER BY FrequencyOfOfferType DESC
+```
+
+##**<B> Business Query Statements 6:</B> The sales team wants to see the sales performance of all the clock products. List all the information on the clock products like Product Name, Unit Price, Total Sales.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT ProductName, b.UnitPrice AS UnitPrice, SUM(Quantity) QtySold, b.UnitPrice*SUM(Quantity)AS TotalSales
+FROM Product a JOIN OrderItem b WHERE a.Product_ID = b.Product_ID AND ProductName LIKE "%clock%"
+GROUP BY b.Product_ID
+```
+
+  
+<p><font color = "blue" font size = "4"><B><center>
+-------------------------------------Module 4----------------------------------------
+</font></B></center><p>   
+
+
+##**<B>Business Query Statement 7:</B> Marketing Team wants to know the customers who registered not through a referral campaign. Generate a list of customers who registered as a member not through a referral campaign, with the customer ID, Full Name, Year of Birth, and Register Date, in the order of registration date.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+
+SELECT Customer_ID, LastName || ", "|| FirstName AS FullName, YearBirth, RegisterDate FROM Customer
+
+EXCEPT
+
+SELECT Referral.Referee_ID, Referral.LastName || ", "|| Referral.FirstName AS FullName, Referral.YearBirth, Referral.RegisterDate FROM Referral 
+
+Order BY RegisterDate
+```
+
+
+##**<B>Business Query Statement 8:</B> Sales team wants to know the quantity sold of each product, including those which has no order history.
+
+** I have used 3 steps to generate this report.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+-- Step 1: Generate a list of products which has order history with their quantity sold. 
+
+SELECT OrderItem.Product_ID, ProductName, SUM(OrderItem.Quantity) AS QuantitySold, QtyOnHand AS QuantityOnHand FROM OrderItem JOIN Product WHERE OrderItem.Product_ID = Product.Product_ID GROUP BY OrderItem.Product_ID   
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+-- Step 2: Generate a list of products which have no order history by using EXCEPT operator.
+
+SELECT Product_ID, ProductName, 0 AS QuantitySold, QtyOnHand AS QuantityOnHand FROM Product  WHERE Product_ID NOT IN (SELECT Product_ID FROM (SELECT OrderItem.Product_ID, ProductName, SUM(OrderItem.Quantity) AS QuantitySold, QtyOnHand AS QuantityOnHand FROM OrderItem JOIN Product WHERE OrderItem.Product_ID = Product.Product_ID GROUP BY OrderItem.Product_ID))
+
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+-- Step 3: Combine the above 2 lists by using UNION Operator.
+
+SELECT DISTINCT OrderItem.Product_ID, ProductName, COUNT(OrderItem.Product_ID) AS QuantitySold, QtyOnHand AS QuantityOnHand FROM OrderItem JOIN Product WHERE OrderItem.Product_ID = Product.Product_ID GROUP BY OrderItem.Product_ID  
+
+UNION
+
+SELECT Product_ID, ProductName, 0 AS QuantitySold, QtyOnHand AS QuantityOnHand FROM Product  WHERE Product_ID NOT IN (SELECT Product_ID FROM (SELECT OrderItem.Product_ID, ProductName, SUM(OrderItem.Quantity) AS QuantitySold, QtyOnHand AS QuantityOnHand FROM OrderItem JOIN Product WHERE OrderItem.Product_ID = Product.Product_ID GROUP BY OrderItem.Product_ID))
+
+ORDER BY QuantitySold DESC
+```
+
+
+##**<B>Business Query Statement 9:</B> Product Team wants to tag customers according to the number of complaints. Tag those who complained over 1 time as “Risky”, those who have 1 complaint as “Attention”, those who have not complained yet as “Normal”.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT Customer_ID, LastName || ", "|| FirstName AS FullName, RegisterDate, NumOfComplain, 
+CASE
+WHEN NumOfComplain >1 THEN " Risky"
+WHEN NumOfComplain =1 THEN "Attention"
+ELSE "Normal"
+END AS Tag
+FROM Customer
+ORDER BY NumOfComplain DESC
+```
+
+##**<B>Business Query Statements 10:</B> Sales and leadership team wants to see the quarter sales performances.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT 
+strftime("%Y", OrderDate) AS Year, 
+CASE 
+WHEN strftime("%m", OrderDate) IN ("01", "02", "03") THEN "Q1"
+WHEN strftime("%m", OrderDate) IN ("04", "05", "06") THEN "Q2"
+WHEN strftime("%m", OrderDate) IN ("07", "08", "09") THEN "Q3"
+ELSE "Q4"
+END AS Quarter,
+SUM(TotalFee) AS QuarterlySales
+FROM OrderList GROUP BY Year, Quarter ORDER BY Quarter, Year
+```
+
+  
+<p><font color = "blue" font size = "4"><B><center>
+-------------------------------------Module 5----------------------------------------
+</font></B></center><p>  
+
+
+##**<B>Business Query Statements 11:</B> Marketing Team wants to rank the campaign channel according to the total number of referrals that happened through them.
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT 
+a.CChannel_ID, PlatformName, COUNT(f.Referral_ID) AS NumOfReferral, RANK () OVER (ORDER BY COUNT(f.Referral_ID) DESC) AS ReferralRank FROM
+Platform a JOIN CampaignChannel b JOIN Campaign c JOIN PromotionOffer d JOIN CampaignBehavior e JOIN Referral f WHERE
+a.CChannel_ID = b.CChannel_ID AND
+b.Campaign_ID = c.Campaign_ID AND
+c.Campaign_ID = d.Campaign_ID AND
+d.DiscountCode = e.DiscountCode AND
+e.Referral_ID = f.Referral_ID
+GROUP BY a.CChannel_ID
+```
+
+##**<B>Business Query Statements 12:</B> Create a view of the labeled customers by the risk level which could be used to further check their behaviors in sales and campaigns.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP VIEW IF EXISTS CustGroup
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE VIEW IF NOT EXISTS CustGroup
+AS 
+
+SELECT Customer_ID, LastName || ", "|| FirstName AS FullName, YearBirth, Education, MaritalStatus, RegisterDate, NumOfComplain, CusChanAccountID,
+CASE
+WHEN NumOfComplain >1 THEN " Risky"
+WHEN NumOfComplain =1 THEN "Attention"
+ELSE "Normal"
+END AS Tag
+FROM Customer 
+GROUP BY Customer_ID
+ORDER BY NumOfComplain DESC
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT * FROM CustGroup
+```
+
+##**<B>Business Query Statements 13:</B> Create a view of customer consumption activity that contains the total order amount in $, including those who have not consumed yet.
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP VIEW IF EXISTS CustActivity
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE VIEW IF NOT EXISTS CustActivity
+AS 
+
+SELECT Customer_ID, FullName, RegisterDate, Tag, 0 AS TotalOrderAmount_$ FROM CustGroup WHERE Customer_ID NOT IN 
+(SELECT Customer_ID FROM (SELECT b.Customer_ID, FullName, RegisterDate, Tag, SUM(b.TotalFee) AS TotalOrderAmount_$ FROM CustGroup a JOIN OrderList b ON a.Customer_ID = b.Customer_ID GROUP BY b.Customer_ID))
+
+UNION
+
+SELECT b.Customer_ID, FullName, RegisterDate, Tag, SUM(b.TotalFee) AS TotalOrderAmount_$ FROM CustGroup a JOIN OrderList b ON a.Customer_ID = b.Customer_ID GROUP BY b.Customer_ID
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT *FROM CustActivity
+```
+
+##**<B>Business Query Statements 14:</B> Rank the customers according to their total order amount for each type of risk tag.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT FullName, RegisterDate, Tag, TotalOrderAmount_$, RANK () OVER(PARTITION BY Tag ORDER BY TotalOrderAmount_$ DESC) ActiveRankByTag FROM CustActivity GROUP BY Customer_ID
+```
+
+##**<B>Business Query Statements 15:</B> List the top 2 customers who have made the biggest contribution to sales on each campaign platform with their ID, Full Name, Register Date, Platform name and total order amount.
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+WITH RefereePurchase AS(
+SELECT DISTINCT a.Customer_ID, FullName, b.RegisterDate, PlatformName, TotalOrderAmount_$ FROM CustActivity a JOIN Referral b JOIN CampaignBehavior c JOIN PromotionOffer d JOIN Campaign e JOIN CampaignChannel f JOIN Platform g ON a.Customer_ID = b.Referee_ID AND b.Referral_ID = c.Referral_ID AND c.DiscountCode =d.DiscountCode AND d.Campaign_ID =e.Campaign_ID AND e.Campaign_ID = f.Campaign_ID AND f.CChannel_ID = g.CChannel_ID
+)
+
+SELECT*FROM (SELECT Customer_ID, FullName, RegisterDate, PlatformName, RANK() OVER(PARTITION BY PlatformName ORDER BY TotalOrderAmount_$ DESC) SalesRankByPlat, TotalOrderAmount_$ FROM RefereePurchase) WHERE SalesRankByPlat<3 
+```
+

@@ -1,0 +1,691 @@
+---
+title: 'QiuYu_Individual_Schema'
+author: "Yu Qiu"
+date: "12/20/2021"
+output: html_document
+---
+
+```{r}
+library(knitr)
+library(DBI)
+library(RSQLite)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+dbRetailMarketing = dbConnect(RSQLite::SQLite(), dbname ="QiuYu_Individual_DB.db")
+
+knitr::opts_chunk$set(connection = dbRetailMarketing)
+```
+
+```{r}
+DBI::dbListTables(dbRetailMarketing)
+```
+
+
+```{sql connection=dbRetailMarketing}
+DROP TABLE IF EXISTS Customer;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE Customer(
+ Customer_ID int PRIMARY KEY NOT NULL,
+ FirstName varchar(50),
+ LastName varchar(50),
+ YearBirth INTERVAL YEAR (4),
+ Education varchar(50),
+ MaritalStatus varchar(50),
+ NumOfComplain int,
+ RegisterDate date,
+ CusChanAccountID varchar(10)
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS Platform;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE Platform(
+ CChannel_ID int PRIMARY KEY NOT NULL,
+ PlatformName varchar(10)
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS Product;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE Product(
+ Product_ID int PRIMARY KEY NOT NULL,
+ ProductName varchar(50),
+ UnitPrice decimal(20,2),
+ QtyOnHand int
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS Campaign;
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE Campaign(
+ Campaign_ID int PRIMARY KEY NOT NULL,
+ CampaignName varchar(50) NOT NULL,
+ StartDate date,
+ EndDate date
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS PromotionOffer;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE PromotionOffer(
+ DiscountCode varchar(10) PRIMARY KEY,
+ Campaign_ID int NOT NULL,
+ OfferType varchar(10),
+ DiscountRate decimal(10,2),
+ StartDate date,
+ EndDate date,
+ FOREIGN KEY (Campaign_ID) REFERENCES Campaign
+ );
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS PurchaseChannel
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE PurchaseChannel(
+ PChannel_ID int PRIMARY KEY NOT NULL,
+ ChannelName varchar(50)
+)
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS OrderList;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE OrderList(
+ Order_ID int PRIMARY KEY NOT NULL,
+ Customer_ID int NOT NULL,
+ PChannel_ID int NOT NULL,
+ OrderDate date,
+ TotalFee decimal(20,2),
+ CONSTRAINT CampaignBehavior FOREIGN KEY (Order_ID) REFERENCES Referral,
+ CONSTRAINT OrderItem FOREIGN KEY (Order_ID) REFERENCES Product,
+ FOREIGN KEY (Customer_ID) REFERENCES Customer
+ FOREIGN KEY (PChannel_ID) REFERENCES PurchaseChannel
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS Referral;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE Referral (
+ Referral_ID int PRIMARY KEY NOT NULL,
+ Referee_ID int,
+ FirstName varchar(50),
+ LastName varchar(50),
+ YearBirth INTERVAL YEAR(4),
+ Education varchar(50),
+ MaritalStatus varchar(50),
+ RegisterDate date,
+ CusChanAccountID varchar(10)
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS CampaignChannel
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE CampaignChannel (
+CChannel_ID int NOT NULL,
+Campaign_ID int NOT NULL,
+Customer_ID int NOT NULL,
+CONSTRAINT PK_CampaignChannel PRIMARY KEY (CChannel_ID, Campaign_ID, Customer_ID),
+CONSTRAINT RelationalCampaignChannel FOREIGN KEY (CChannel_ID) REFERENCES Platform,
+CONSTRAINT RelationalCampaignChannel FOREIGN KEY (Campaign_ID) REFERENCES Campaign,
+CONSTRAINT RelationalCampaignChannel FOREIGN KEY (Customer_ID) REFERENCES Customer);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS CampaignBehavior
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE CampaignBehavior (
+DiscountCode int NOT NULL,
+Order_ID int NOT NULL,
+Referral_ID int NOT NULL,
+CONSTRAINT PK_CampaignBehavior PRIMARY KEY (DiscountCode, Order_ID, Referral_ID),
+CONSTRAINT RelationalCampaignBehavior FOREIGN KEY (DiscountCode) REFERENCES PromotionOffer,
+CONSTRAINT RelationalCampaignBehavior FOREIGN KEY (Order_ID) REFERENCES OrderList,
+CONSTRAINT RelationalCampaignBehavior FOREIGN KEY (Referral_ID) REFERENCES Referral
+);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+DROP TABLE IF EXISTS OrderItem
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+CREATE TABLE OrderItem (
+Order_ID int NOT NULL,
+Product_ID int NOT NULL,
+Quantity int,
+UnitPrice decimal(10,2),
+CONSTRAINT PK_OrderItem PRIMARY KEY (Order_ID, Product_ID),
+CONSTRAINT RelationalOrderItem FOREIGN KEY (Order_ID) REFERENCES OrderList,
+CONSTRAINT RelationalOrderItem FOREIGN KEY (Product_ID) REFERENCES Product
+);
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO Customer (Customer_ID, FirstName, LastName, YearBirth, Education, MaritalStatus, NumOfComplain, RegisterDate, CusChanAccountID) VALUES
+(5524, "Adams", "Andrew", 1957, "Bachelor", "Single", 1, "2012-09-04", "a100000029"),
+(2174, "Nancy", "Edwards", 1954, "Bachelor", "Single", 0, "2014-03-08", "a100000030"),
+(4141, "Jane", "Peacock", 1965, "Bachelor", "Together", 0, "2013-08-11", "a100000031"),
+(6182, "Margaret", "Park", 1984, "Bachelor", "Together", 1, "2014-02-01", "a100000032"),
+(5324, "Steve", "Johnson", 1981, "PhD", "Married", 0, "2014-01-09", "a100000033"),
+(7446, "Michael", "Mitchell", 1967, "Master", "Together", 0, "2014-01-04", "a100000034"),
+(965, "Robert", "King", 1971, "Bachelor", "Divorced",1, "2012-11-12", "a100000035"),
+(6177, "Laura", "Caliahan", 1985, "PhD", "Married", 0, "2012-11-12", "a100000036"),
+(4855, "Daan", "Peeters", 1974, "PhD", "Together", 0, "2013-06-08", "a100000037"),
+(5899, "Kara", "Nielsen", 1950, "PhD", "Together", 0, "2014-03-13", "a100000038"),
+(1994, "Martins", "Eduardo", 1983, "Bachelor", "Married", 0, "2013-11-12", "a100000039"),
+(387, "Alexande", "Rocha", 1976, "Basic", "Married", 0, "2012-11-13", "a100000040"),
+(2125, "Mark", "Philips", 1959, "Bachelor", "Divorced", 0, "2013-11-15", "a100000041"),
+(8180, "Frank", "Harris", 1952, "Master", "Divorced", 0, "2013-11-15", "a100000042"),
+(2569, "Jack", "Smith", 1987, "Bachelor", "Married", 0, "2012-10-12", "a100000043"),
+(2114, "Tim", "Goyer", 1946, "PhD", "Single", 0, "2012-11-14", "a100000044"),
+(9736, "Kathy", "Chase", 1980, "Bachelor", "Married", 0, "2012-12-24", "a100000045"),
+(4939, "John", "Gordon", 1946, "Bachelor", "Together", 0, "2013-08-14", "a100000046"),
+(6565, "Patric", "Gray", 1949, "Master", "Married", 0, "2013-03-28", "a100000047"),
+(2278, "Robert", "Brown", 1985, "High School", "Single", 0, "2012-11-03", "a100000048"),
+(9360, "Martha", "Silk", 1982, "Bachelor", "Married", 0, "2012-08-08", "a100000049"),
+(5376, "Hanna", "Schneider", 1979, "Bachelor", "Married", 0, "2013-01-06", "a100000050"),
+(1993, "Marc", "Dubols", 1949, "PhD", "Married",1, "2012-12-03", "a100000051"),
+(4047, "Lucas", "Smith", 1954, "PhD", "Married", 0, "2014-01-04", "a100000052"),
+(1409, "Steve", "Murray", 1951, "Bachelor", "Together", 0, "2013-03-18", "a100000053"),
+(7892, "Luis", "Rojas", 1969, "Bachelor", "Single", 0, "2013-01-06", "a100000054"),
+(2404, "Mark", "Talor", 1976, "Bachelor", "Married", 0, "2013-05-27", "a100000055"),
+(5255, "Emma", "Johns", 1986, "Bachelor", "Single", 0, "2013-05-21", "a100000056"),
+(9422, "Victor", "Stevens", 1989, "Bachelor", "Married", 0, "2013-05-21", "a100000057"),
+(10383, "Alexande", "Rocha", 1966, "Graduation", "Divorced", 1,"2013-02-04", "a100000127"),
+(7437, "Jack", "Smith", 1988, "Graduation", "Single", 1,"2014-04-28", "a100000128"),
+(8557, "William", "Smith", 1982, "Graduation", "Single", 1, "2013-06-17", "a100000129"),
+(8375, "Hanna", "Chen", 1968, "PhD", "Married", 2,"2014-03-03","a100000130"),
+(6853, "Frank", "Wang",1982, "Master", "Single", 0,"2013-07-04", "a100000131"),
+(3076, "Mark", "Wong", 1975, "Graduation", "Together", 0,"2012-07-09", "a100000132"),
+(1012, "Lucas", "Smith",1952, "Graduation", "Single", 0,"2013-02-18", "a100000133"),
+(6518,"Adams", "Smith", 1951, "PhD", "Widow", 0,"2013-06-11", "a100000134"),
+(4137, "Adams", "Andrew",1948, "Graduation", "Together", 0,"2013-02-16", "a100000135"),
+(8082, "Victor", "Stevens", 1971, "Graduation", "Married", 0,"2013-05-21", "a100000136"),
+(1386,  "Victor", "Honey",1967, "Graduation", "Together", 0,"2014-05-11", "a100000137"),
+(9369, "Kathy", "Chase",1979, "2n Cycle", "Single", 0,"2014-03-19", "a100000138"),
+(4477, "Kathy", "Chen",1958, "Graduation", "Together", 0,"2013-09-27", "a100000139"),
+(1357, "Jane", "Qiu",1970, "Graduation", "Together", 0,"2013-03-08", "a100000140"),
+(1402, "Mike", "Peacock",1954, "Master", "Married", 0,"2012-09-11", "a100000141"),
+(10629, "David", "Liu",1973, "2n Cycle", "Married", 0,"2012-09-14", "a100000142"),
+(6312, "Jane", "Gray",1959, "Graduation", "Married", 0,"2013-03-17", "a100000143"),
+(8132, "Yellow", "Gordon",1975, "PhD", "Married", 0,"2013-04-05", "a100000144"),
+(1050,"Red", "Gordon", 1952, "Graduation", "Married", 2,"2013-04-30", "a100000145"),
+(1966, "Steve", "Murray", 1965, "PhD", "Married", 0,"2014-02-01", "a100000100"),
+(6864, "Steve", "Smith",1989, "Master", "Divorced", 0,"2014-02-01", "a100000101"),
+(3033, "Jack", "Smith",1963, "Master", "Together", 0,"2014-02-01", "a100000102"),
+(5710, "Mike", "Wilson",1970, "Bachelor", "Together", 0,"2014-02-01", "a100000103"),
+(7373, "Red", "Jones",1952, "PhD", "Divorced", 0,"2014-02-01", "a100000104"),
+(8755, "Micky", "Murray",1946, "Master", "Married", 0,"2014-02-01", "a100000105"),
+(10738, "Jane", "Cook",1951, "Master", "Single", 0,"2014-02-01", "a100000106"),
+(4339, "Katie", " Ford",1970, "PhD", "Married", 0,"2013-01-02", "a100000107"),
+(10755, "Michelle", "Murray",1976, "2n Cycle", "Married", 0,"2013-01-02", "a100000108"),
+(8595, "Steve", "Jones",1973, "Bachelor", "Widow", 0,"2013-01-02", "a100000109"),
+(2968, "Michael", "Murray",1943, "PhD", "Divorced", 0,"2013-01-02", "a100000110"),
+(8601, "Rachel", "Brown",1980, "Bachelor", "Married", 0,"2013-01-02", "a100000111"),
+(503, "Monica", "Jones",1985, "Master", "Married", 0,"2013-08-14", "a100000112"),
+(8430, "Joe", "Cook",1957, "Bachelor", "Together", 0,"2013-08-14", "a100000113"),
+(7281, "Laura", "Armstrong",1959, "PhD", "Single", 0,"2013-08-14", "a100000114"),
+(2139, "Wendy", "Williams",1975, "Master", "Married", 0,"2013-08-14", "a100000115"),
+(1371, "Emily", "Murray",1976, "Bachelor", "Single", 0,"2013-08-14", "a100000116"),
+(9909, "Orange", "Armstrong",1996, "High School", "Married", 0,"2013-08-14", "a100000117"),
+(7286, "Stephanie", "Murray",1968, "Bachelor", "Together", 0,"2013-08-14", "a100000118"),
+(7244, "Jackie", "Wilson",1951, "Bachelor", "Single", 0,"2013-08-14", "a100000119"),
+(6566, "Jade", "Wilson",1954, "PhD", "Married", 0,"2013-08-14", "a100000120"),
+(8614, "John", "Murray",1957, "Bachelor", "Widow", 1,"2013-08-14", "a100000121"),
+(4114, "Joe", "Williams",1964, "Master", "Married", 0,"2013-08-14", "a100000122"),
+(1331, "John", "Collins",1977, "Bachelor", "Single", 0,"2013-08-14", "a100000123"),
+(2225, "Joy", " Ford",1977, "Bachelor", "Divorced", 0,"2013-08-14", "a100000124"),
+(9381, "Tim", "Murray",1978, "Bachelor", "Married", 0,"2013-08-14", "a100000125"),
+(6260, "Ray", "Collins",1955, "Master", "Together", 0,"2013-08-14", "a100000126");
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO Platform (CChannel_ID, PlatformName) VALUES
+(1, "email"),
+(2, "facebook"),
+(3, "instagram"),
+(4, "housead"),
+(5, "message");
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO Product (Product_ID, ProductName, UnitPrice, QtyOnHand) VALUES
+(110, "WHITE HANGING HEART T-LIGHT HOLDER", 2.55, 200000),
+(111, "WHITE METAL LANTERN", 3.39, 300000),
+(112, "CREAM CUPID HEARTS COAT HANGER", 2.75, 400000),
+(113, "KNITTED UNION FLAG HOT WATER BOTTLE", 3.39, 500000),
+(114, "RED WOOLLY HOTTIE WHITE HEART.", 3.39, 600000),
+(115, "SET 7 BABUSHKA NESTING BOXES", 7.65, 700000),
+(116, "GLASS STAR FROSTED T-LIGHT HOLDER", 4.25, 800000),
+(117, "HAND WARMER UNION JACK", 1.85, 900000),
+(118, "HAND WARMER RED POLKA DOT", 1.85, 1000000),
+(119, "ASSORTED COLOUR BIRD ORNAMENT", 1.69, 1100000),
+(120, "POPPY'S PLAYHOUSE BEDROOM ", 232.1, 1200000),
+(121, "POPPY'S PLAYHOUSE KITCHEN", 222.1, 1300000),
+(122, "FELTCRAFT PRINCESS CHARLOTTE DOLL", 3.75, 1400000),
+(123, "IVORY KNITTED MUG COSY ", 1.65, 1500000),
+(124, "BOX OF 6 ASSORTED COLOUR TEASPOONS", 4.25, 1600000),
+(125, "BOX OF VINTAGE JIGSAW BLOCKS ", 4.95, 1700000),
+(126, "BOX OF VINTAGE ALPHABET BLOCKS", 9.95, 1800000),
+(127, "HOME BUILDING BLOCK WORD", 5.95, 1900000),
+(128, "LOVE BUILDING BLOCK WORD", 5.95, 2000000),
+(129, "RECIPE BOX WITH METAL HEART", 7.95, 2100000),
+(130, "DOORMAT NEW ENGLAND", 7.95, 2200000),
+(131, "JAM MAKING SET WITH JARS", 4.25, 2300000),
+(132, "RED COAT RACK PARIS FASHION", 34.95, 2400000),
+(133, "YELLOW COAT RACK PARIS FASHION", 24.95, 2500000),
+(134, "BLUE COAT RACK PARIS FASHION", 14.95, 2600000),
+(135, "BATH BUILDING BLOCK WORD", 5.95, 2700000),
+(136, "ALARM CLOCK BAKELIKE PINK", 3.75, 2800000),
+(137, "ALARM CLOCK BAKELIKE RED ", 3.75, 2800000),
+(138, "ALARM CLOCK BAKELIKE GREEN", 3.75, 2800000),
+(139, "PANDA AND BUNNIES STICKER SHEET", 0.85, 2000000),
+(140, "STARS GIFT TAPE ", 0.65, 2000000),
+(141, "INFLATABLE POLITICAL GLOBE ", 0.85, 2000000),
+(142, "VINTAGE HEADS AND TAILS CARD GAME ", 1.25, 2000000),
+(143, "SET/2 RED RETROSPOT TEA TOWELS ", 2.95, 2000000),
+(144, "ROUND SNACK BOXES SET OF4 WOODLAND ", 2.95, 2000000),
+(145, "SPACEBOY LUNCH BOX ", 1.95, 2000000),
+(146, "LUNCH BOX I LOVE LONDON", 1.95, 2000000),
+(147, "CIRCUS PARADE LUNCH BOX ", 1.95, 2000000),
+(148, "CHARLOTTE BAG DOLLY GIRL DESIGN", 0.85, 2000000),
+(149, "RED TOADSTOOL LED NIGHT LIGHT", 1.65, 2000000),
+(150, " SET 2 TEA TOWELS I LOVE LONDON ", 2.95, 2000000),
+(151, "VINTAGE SEASIDE JIGSAW PUZZLES", 3.75, 2000000),
+(152, "MINI JIGSAW CIRCUS PARADE ", 0.42, 2000000),
+(153, "MINI JIGSAW SPACEBOY", 0.42, 2000000),
+(154, "MINI PAINT SET VINTAGE ", 0.65, 2000000),
+(155, "POSTAGE", 18.00, 2000000),
+(156, "PAPER CHAIN KIT 50'S CHRISTMAS ", 2.55, 2000000),
+(157, "HAND WARMER RED POLKA DOT", 1.85, 2000000),
+(158, "HAND WARMER UNION JACK", 1.85, 2000000),
+(159, "WHITE HANGING HEART T-LIGHT HOLDER", 2.55, 2000000),
+(160, "WHITE METAL LANTERN", 3.39, 1100000),
+(161, "CREAM CUPID HEARTS COAT HANGER", 2.75, 1100000),
+(162, "EDWARDIAN PARASOL RED", 4.95, 1100000),
+(163, "RETRO COFFEE MUGS ASSORTED", 1.06, 1100000),
+(164, "SAVE THE PLANET MUG", 1.06, 1100000),
+(165, "VINTAGE BILLBOARD DRINK ME MUG", 1.06, 1100000),
+(166, "VINTAGE BILLBOARD LOVE/HATE MUG", 1.06, 1100000),
+(167, "WOOD 2 DRAWER CABINET WHITE FINISH", 4.95, 1100000),
+(168, "WOOD S/3 CABINET ANT WHITE FINISH", 6.95, 1100000),
+(169, "WOODEN PICTURE FRAME WHITE FINISH", 2.1, 1100000),
+(170, "WOODEN FRAME ANTIQUE WHITE ", 2.55, 1100000),
+(171, "KNITTED UNION FLAG HOT WATER BOTTLE", 3.39, 1100000),
+(172, "RED WOOLLY HOTTIE WHITE HEART", 3.39, 1100000);
+
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO Campaign (Campaign_ID, CampaignName, StartDate, EndDate) VALUES
+(1, "email activate", "2014-02-01", "2014-05-01"),
+(2, "facebook feed", "2013-01-02", "2013=04-02"),
+(3, "instagram feed", "2013-08-14", "2013-09-14"),
+(4, "housead activate", "2013-11-12", "2013-11-30"),
+(5, "message activate", "2014-03-08", "2014-04-08"),
+(6, "facebook feed", "2012-11-12", "2012-12-31"),
+(7, "facebook feed", "2013-05-21", "2013-06-21"),
+(8, "instagram feed", "2014-01-04", "2014-03-4"),
+(9, "housead celebration", "2012-11-03", "2012-11-30"),
+(10, "housead celebration", "2013-01-06", "2013-04-06")
+;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO PromotionOffer (DiscountCode, Campaign_ID, OfferType, DiscountRate, StartDate, EndDate) VALUES
+("ABC123", 1, "Buy One Get One Free", 0.5, "2014-02-01", "2014-05-01"),
+("BDC124", 2, "20% Discount", 0.2, "2013-01-02", "2013=04-02"),
+("DCE125", 3, "Buy One Get One Free", 0.5, "2013-08-14", "2013-09-14"),
+("CEF126", 4, "10% Discount", 0.1, "2013-11-12", "2013-11-30"),
+("ABC124", 5, "Buy One Get One Free", 0.5, "2014-03-08", "2014-04-08"),
+("BDC125", 6, "Buy One Get One Free", 0.5, "2012-11-12", "2012-12-31"),
+("DCE126", 7, "Buy One Get One Free", 0.5, "2013-05-21", "2013-06-21"),
+("CEF127", 8, "Buy One Get One Free", 0.5, "2014-01-04", "2014-03-4"),
+("ABC125", 9, "30% Discount", 0.3, "2012-11-03", "2012-11-30"),
+("BDC126", 10, "Buy One Get One Free", 0.5, "2013-01-06", "2013-04-06")
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO PurchaseChannel (PChannel_ID, ChannelName) VALUES
+(1, "Official Website"),
+(2, "Offline Store Boston"),
+(3, "Offline Store Burlington"),
+(4, "Offline Store NewYork"),
+(5, "Offline Store Auburn")
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO OrderList (Order_ID, Customer_ID, PChannel_ID, OrderDate, TotalFee) VALUES
+(1, 5524, 1,  "2012-09-12", 14.35),
+(2, 2174, 1,  "2014-03-14", 15.255),
+(3, 4141, 1,  "2013-08-13", 5.515),
+(4, 6182, 1,  "2014-02-14", 12.765),
+(5, 5324, 1,  "2014-01-24", 10.425),
+(6, 7446, 1,  "2013-09-23", 26.55),
+(7, 965, 1,  "2012-01-22", 14.35),
+(8, 6177, 2,  "2012-05-23", 21.105),
+(9, 4855, 3,  "2013-06-23", 11.116),
+(10, 5899, 4,  "2014-03-14", 29.75),
+(11, 1994, 5,  "2013-11-03", 823.27),
+(12, 387, 1,  "2012-11-02", 944.72),
+(13, 2125, 2,  "2013-11-03", 327.551),
+(14, 8180, 2,  "2013-11-01", 164.395),
+(15, 2569, 2,  "2012-10-02", 163.555),
+(16, 2114, 3,  "2014-08-22", 204.4),
+(17, 9736, 3,  "2012-12-20", 116.9),
+(18, 4939, 3,  "2012-08-12", 121.675),
+(19, 6565, 3,  "2013-03-23", 148.425),
+(20, 2278, 4,  "2012-11-29", 2887.3),
+(21, 9360, 5,  "2012-08-09", 115.925),
+(22, 5376, 1,  "2013-01-23", 121.675),
+(23, 1993, 1,  "2012-12-12", 72.325),
+(24, 4047, 1,  "2014-01-14", 187.88),
+(25, 1409, 1,  "2013-03-13", 38.4),
+(26, 7892, 1,  "2013-01-01", 125.925),
+(27, 2404, 1,  "2013-05-16", 48.675),
+(28, 5255, 1,  "2013-02-15", 122.3),
+(29, 9422, 1,  "2013-05-14", 10.2),
+(30, 1966, 4,  "2013-11-22", 242.44),
+(31, 6864, 4,  "2014-05-22", 25.38),
+(32, 3033, 4,  "2013-05-11", 235.66),
+(33, 5710, 4,  "2012-10-10", 19.9),
+(34, 7373, 4,  "2012-10-19", 242.44),
+(35, 8755, 4,  "2013-02-20", 18.9),
+(36, 10738, 4,  "2013-08-29", 447.59),
+(37, 4339, 4,  "2013-12-31", 21.39),
+(38, 10755, 4,  "2013-09-02", 1335.99),
+(39, 8595, 4,  "2014-02-11", 20.55),
+(40, 2968, 4,  "2013-02-01", 1162.6),
+(41, 8601, 4,  "2013-04-29", 20.1),
+(42, 503, 4,  "2013-03-12", 30.75),
+(43, 8430, 4,  "2012-12-24", 4.5),
+(44, 7281, 4,  "2013-11-05", 10.35),
+(45, 2139, 4,  "2013-10-02", 5.04),
+(46, 1371, 4,  "2014-06-28", 9.3),
+(47, 9909, 4,  "2012-11-09", 78.24),
+(48, 7286, 4,  "2013-05-24", 64.9),
+(49, 7244, 4,  "2014-01-01", 78.14),
+(50, 6566, 4,  "2012-11-08", 40.35),
+(51, 8614, 4,  "2014-12-03", 91.7),
+(52, 4114, 4,  "2012-08-11", 19.35),
+(53, 1331, 1,  "2013-01-02", 31.89),
+(54, 2225, 1,  "2014-06-07", 30.51),
+(55, 9381, 1,  "2013-06-12", 32.55),
+(56, 6260, 1,  "2012-11-09", 11.03),
+(57, 10383, 1,  "2013-04-02", 37.16),
+(58, 7437, 1,  "2014-04-28", 23.37),
+(59, 8557, 1,  "2013-06-17", 32.21),
+(60, 8375, 1,  "2014-03-03", 28.7)
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO Referral (Referral_ID, Referee_ID, FirstName, LastName, YearBirth, Education, MaritalStatus, RegisterDate, CusChanAccountID) VALUES
+("R1", 1966, "Steve", "Murray", 1965, "PhD", "Married", "2014-02-01", "a100000100"),
+("R2", 6864, "Steve", "Smith",1989, "Master", "Divorced", "2014-02-01", "a100000101"),
+("R3", 3033, "Jack", "Smith",1963, "Master", "Together", "2014-02-01", "a100000102"),
+("R4", 5710, "Mike", "Wilson",1970, "Bachelor", "Together", "2014-02-01", "a100000103"),
+("R5", 7373, "Red", "Jones",1952, "PhD", "Divorced", "2014-02-01", "a100000104"),
+("R6", 8755, "Micky", "Murray",1946, "Master", "Married", "2014-02-01", "a100000105"),
+("R7", 10738, "Jane", "Cook",1951, "Master", "Single", "2014-02-01", "a100000106"),
+("R8", 4339, "Katie", " Ford",1970, "PhD", "Married", "2013-01-02", "a100000107"),
+("R9", 10755, "Michelle", "Murray",1976, "2n Cycle", "Married", "2013-01-02", "a100000108"),
+("R10", 8595, "Steve", "Jones",1973, "Bachelor", "Widow", "2013-01-02", "a100000109"),
+("R11", 2968, "Michael", "Murray",1943, "PhD", "Divorced", "2013-01-02", "a100000110"),
+("R12", 8601, "Rachel", "Brown",1980, "Bachelor", "Married", "2013-01-02", "a100000111"),
+("R13", 503, "Monica", "Jones",1985, "Master", "Married", "2013-08-14", "a100000112"),
+("R14", 8430, "Joe", "Cook",1957, "Bachelor", "Together", "2013-08-14", "a100000113"),
+("R15", 7281, "Laura", "Armstrong",1959, "PhD", "Single", "2013-08-14", "a100000114"),
+("R16", 2139, "Wendy", "Williams",1975, "Master", "Married", "2013-08-14", "a100000115"),
+("R17", 1371, "Emily", "Murray",1976, "Bachelor", "Single", "2013-08-14", "a100000116"),
+("R18", 9909, "Orange", "Armstrong",1996, "High School", "Married", "2013-08-14", "a100000117"),
+("R19", 7286, "Stephanie", "Murray",1968, "Bachelor", "Together", "2013-08-14", "a100000118"),
+("R20", 7244, "Jackie", "Wilson",1951, "Bachelor", "Single", "2013-08-14", "a100000119"),
+("R21", 6566, "Jade", "Wilson",1954, "PhD", "Married", "2013-08-14", "a100000120"),
+("R22", 8614, "John", "Murray",1957, "Bachelor", "Widow", "2013-08-14", "a100000121"),
+("R23", 4114, "Joe", "Williams",1964, "Master", "Married", "2013-08-14", "a100000122"),
+("R24", 1331, "John", "Collins",1977, "Bachelor", "Single", "2013-08-14", "a100000123"),
+("R25", 2225, "Joy", " Ford",1977, "Bachelor", "Divorced", "2013-08-14", "a100000124"),
+("R26", 9381, "Tim", "Murray",1978, "Bachelor", "Married", "2013-08-14", "a100000125"),
+("R27", 6260, "Ray", "Collins",1955, "Master", "Together", "2013-08-14", "a100000126");
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO CampaignChannel(CChannel_ID, Campaign_ID, Customer_ID) VALUES
+(1, 1, 1966),
+(2, 2, 6864),
+(3, 3, 3033),
+(5, 5, 5710),
+(5, 5, 7373),
+(3, 3, 8755),
+(2, 2, 10738),
+(2, 2, 4339),
+(2, 2, 10755),
+(2, 6, 8595),
+(2, 7, 2968),
+(1, 1, 8601),
+(2, 2, 503),
+(2, 6, 8430),
+(3, 3, 7281),
+(3, 3, 2139),
+(3, 8, 1371),
+(3, 8, 9909),
+(3, 8, 7286),
+(3, 8, 7244),
+(3, 8, 6566),
+(3, 8, 8614),
+(3, 8, 4114),
+(3, 8, 1331),
+(3, 8, 2225),
+(3, 8, 9381),
+(2, 7, 6260);
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO CampaignBehavior(DiscountCode, Order_ID, Referral_ID) VALUES
+("ABC123", 1, "R1"),
+("ABC123", 2, "R2"),
+("ABC123", 3, "R3"),
+("ABC123", 4, "R4"),
+("BDC124", 5, "R5"),
+("BDC124", 6, "R6"),
+("BDC124", 7, "R7"),
+("ABC125", 8, "R8"),
+("ABC125", 9, "R9"),
+("ABC125", 10, "R10"),
+("ABC125", 11, "R11"),
+("ABC125", 12, "R12"),
+("ABC125", 13, "R13"),
+("ABC125", 14, "R14"),
+("ABC125", 15, "R15"),
+("ABC125", 16, "R16"),
+("DCE126", 17, "R17"),
+("DCE126", 18, "R18"),
+("DCE126", 19, "R19"),
+("BDC126", 20, "R20"),
+("DCE125", 21, "R21"),
+("DCE125", 22, "R22"),
+("DCE125", 23, "R23"),
+("ABC124", 24, "R24"),
+("BDC125", 25, "R25"),
+("DCE126", 26, "R26"),
+("CEF127", 27, "R27"),
+("BDC126", 28, "R28"),
+("CEF127", 29, "R29");
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+INSERT INTO OrderItem(Order_ID, Product_ID, Quantity, UnitPrice) VALUES
+(1, 110, 2, 1.275), 
+(2, 111, 3, 1.695), 
+(3, 110, 1, 1.275), 
+(4, 113, 2, 1.695), 
+(5, 110, 3, 1.275), 
+(6, 115, 4, 3.825), 
+(7, 110, 2, 1.275), 
+(8, 110, 3, 1.785), 
+(9, 118, 4, 1.295), 
+(10, 110, 5, 1.785), 
+(11, 120, 5, 162.47), 
+(12, 121, 6, 155.47), 
+(13, 121, 2, 155.47), 
+(14, 121, 1, 155.47), 
+(15, 121, 1, 155.47), 
+(16, 121, 1, 155.47), 
+(17, 121, 1, 111.05), 
+(18, 121, 1, 111.05), 
+(19, 121, 1, 111.05), 
+(20, 121, 1, 111.05), 
+(21, 121, 1, 111.05), 
+(22, 131, 5, 2.125), 
+(23, 132, 2, 17.475), 
+(24, 131, 3, 3.4), 
+(25, 131, 4, 2.125), 
+(26, 135, 5, 2.975), 
+(27, 136, 6, 1.875), 
+(28, 137, 6, 1.875), 
+(29, 138, 5, 1.875), 
+(30, 172, 6, 3.39), 
+(31, 172, 7, 3.39), 
+(32, 172, 4, 3.39), 
+(33, 172, 5, 3.39), 
+(34, 172, 6, 3.39), 
+(35, 172, 5, 3.39), 
+(36, 172, 1, 3.39), 
+(37, 172, 1, 3.39), 
+(38, 171, 1, 3.39), 
+(39, 170, 1, 2.55), 
+(40, 169, 1, 2.1), 
+(41, 155, 1, 18), 
+(42, 155, 1, 18), 
+(43, 146, 1, 1.95), 
+(44, 144, 1, 2.95), 
+(45, 123, 1, 1.65), 
+(46, 123, 1, 1.65), 
+(47, 133, 3, 24.95), 
+(48, 134, 4, 14.95), 
+(49, 134, 5, 14.95), 
+(50, 145, 5, 1.95), 
+(51, 134, 5, 14.95), 
+(52, 145, 6, 1.95), 
+(53, 123, 7, 1.65), 
+(54, 111, 7, 3.39), 
+(55, 145, 8, 1.95), 
+(56, 163, 8, 1.06), 
+(57, 143, 8, 2.95), 
+(58, 123, 8, 1.65), 
+(59, 166, 8, 1.06), 
+(60, 144, 8, 2.95), 
+(60, 110, 2, 2.55), 
+(58, 111, 3, 3.39), 
+(56, 110, 1, 2.55), 
+(54, 113, 2, 3.39), 
+(52, 110, 3, 2.55), 
+(50, 115, 4, 7.65), 
+(48, 110, 2, 2.55), 
+(46, 110, 3, 2.55), 
+(44, 118, 4, 1.85), 
+(42, 110, 5, 2.55), 
+(40, 120, 5, 232.1), 
+(38, 121, 6, 222.1), 
+(36, 121, 2, 222.1), 
+(34, 121, 1, 222.1), 
+(32, 121, 1, 222.1), 
+(30, 121, 1, 222.1), 
+(28, 121, 1, 111.05), 
+(26, 121, 1, 111.05), 
+(24, 121, 1, 177.68), 
+(22, 121, 1, 111.05), 
+(20, 112, 25, 1.375), 
+(18, 131, 5, 2.125), 
+(16, 132, 2, 24.465), 
+(14, 131, 3, 2.975), 
+(12, 131, 4, 2.975), 
+(10, 135, 5, 4.165), 
+(8, 136, 6, 2.625), 
+(6, 137, 6, 1.875), 
+(4, 138, 5, 1.875), 
+(2, 172, 6, 1.695), 
+(59, 172, 7, 3.39), 
+(57, 172, 4, 3.39), 
+(55, 172, 5, 3.39), 
+(53, 172, 6, 3.39), 
+(51, 172, 5, 3.39), 
+(49, 172, 1, 3.39), 
+(47, 172, 1, 3.39), 
+(45, 171, 1, 3.39), 
+(43, 170, 1, 2.55), 
+(41, 169, 1, 2.1), 
+(39, 155, 1, 18), 
+(37, 155, 1, 18), 
+(35, 146, 1, 1.95), 
+(33, 144, 1, 2.95), 
+(31, 123, 1, 1.65), 
+(29, 123, 1, 0.825), 
+(27, 133, 3, 12.475), 
+(25, 134, 4, 7.475), 
+(23, 134, 5, 7.475), 
+(21, 145, 5, 0.975), 
+(19, 134, 5, 7.475), 
+(17, 145, 6, 0.975), 
+(15, 123, 7, 1.155), 
+(13, 111, 7, 2.373), 
+(11, 145, 8, 1.365), 
+(9, 163, 8, 0.742), 
+(7, 143, 8, 1.475), 
+(5, 123, 8, 0.825), 
+(3, 166, 8, 0.53), 
+(1, 144, 8, 1.475)
+```
+
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT * FROM PurchaseChannel;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT * FROM Customer;
+```
+
+```{sql connection=dbRetailMarketing}
+SELECT Product_ID, ProductName FROM  OrderItem JOIN Product ON
+ b.Product_ID = c.Product_ID
+;
+```
+
+```{sql connection=dbRetailMarketing, max.print=-1}
+SELECT * FROM Campaign;
+```
+
